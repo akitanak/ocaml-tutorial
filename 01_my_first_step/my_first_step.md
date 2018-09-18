@@ -1,5 +1,5 @@
 
-# はじめの一歩
+# はじめの一歩
 ## コメント
 
 - 1行コメント
@@ -28,7 +28,8 @@
 - 下記のように記述すると `get_string_from_user` の戻り値を `repeated` の第1引数として渡すことになる。
 
   ```ocaml
-  repeated (get_string_from_user "Please type in a string.") ```
+  repeated (get_string_from_user "Please type in a string.")
+  ```
 
 ## 関数定義
 
@@ -37,7 +38,7 @@
 - 暗黙の型変換は無い
 - 演算子の多重定義は禁止されている
   - そのため、整数と浮動小数点数では加算の演算子も異なる(整数: `+` , 浮動小数点数: `+.`)
-- OCaml は関数の最後の式を返値とする
+- OCaml は関数の最後の式を返値とする
 
 浮動小数点数を引数に2つとり、平均を求める関数は次の様に定義できる。
 ```ocaml
@@ -48,15 +49,15 @@ let average a b =
 ## 基本の型
 
 - int: 32bit cpu では31bit符号付き整数、64bit cpu では63bit符号付き整数
-- float: IEEE 倍精度浮動小数点数、C の double と同じ
-- bool: true/falseとなる真偽値
+- float: IEEE 倍精度浮動小数点数、C の double と同じ
+- bool: true/falseとなる真偽値
 - char: 8bit文字
 - string: 文字列
 - unit: () と書くもの
 
 32bit整数型を使いたいときは `nativeint` 型を使う。
 
-## 明示的/暗黙の型変換
+## 明示的/暗黙の型変換
 
 - OCaml では暗黙の型変換は一切行われない。
 - 次のような式はエラーになる
