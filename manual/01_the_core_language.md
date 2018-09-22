@@ -94,9 +94,9 @@ list のパターンマッチは listの志木と同じ表現で指定できる�
 
 ```ocaml
 # let rec sort lst =
-  match lst with
-    [] -> []
-  | head :: tail -> insert head (sort tail)
+    match lst with
+      [] -> []
+    | head :: tail -> insert head (sort tail)
   and insert elt lst =
     match lst with
       [] -> [elt]
@@ -105,6 +105,7 @@ list のパターンマッチは listの志木と同じ表現で指定できる�
 val sort : 'a list -> 'a list = <fun>
 val insert : 'a -> 'a list -> 'a list = <fun>
 ```
+
 ```ocaml
 # sort l;;
 - : string list = ["a"; "etc."; "is"; "tale"; "told"]
@@ -182,9 +183,9 @@ OCaml ライブラリの `List.map` は list の各要素に与えられた関�
 この `map` は次のように定義できる。
 ```ocaml
 # let rec map f l =
-  match l with
-    [] -> []
-  | hd :: tl -> f hd :: map f tl;;
+    match l with
+      [] -> []
+    | hd :: tl -> f hd :: map f tl;;
 val map : ('a -> 'b) -> 'a list -> 'b list = <fun>
 ```
 ```ocaml
@@ -204,8 +205,8 @@ type ratio = { num : int; denom : int; }
 ```
 ```ocaml
 # let add_ratio r1 r2 =
-  {num = r1.num * r2.denom + r2.num * r1.denom;
-   denom = r1.denom * r2.denom};;
+    {num = r1.num * r2.denom + r2.num * r1.denom;
+      denom = r1.denom * r2.denom};;
 val add_ratio : ratio -> ratio -> ratio = <fun>
 ```
 ```ocaml
@@ -216,8 +217,8 @@ val add_ratio : ratio -> ratio -> ratio = <fun>
 レコードのフィールドにはパターンマッチでアクセスできる。
 ```ocaml
 # let integer_part r =
-  match r with
-    {num=num; denom=denom} -> num / denom;;
+    match r with
+      {num=num; denom=denom} -> num / denom;;
 val integer_part : ratio -> int = <fun>
 ```
 
@@ -284,17 +285,17 @@ val sign_int : int -> sign = <fun>
 `number` 型に対する算術的な演算を定義するために、2つの数にパターンマッチを使うと次のようになる。
 ```ocaml
 # let add_num n1 n2 =
-  match (n1, n2) with
-    (Int i1, Int i2) ->
-      (* Check for overflow of integer addition *)
-      if sign_int i1 = sign_int i2 && sign_int (i1 + i2) <> sign_int i1
-      then Float(float i1 +. float i2)
-      else Int(i1 + i2)
-  | (Int i1, Float f2) -> Float(float i1 +. f2)
-  | (Float f1, Int i2) -> Float(f1 +. float i2)
-  | (Float f1, Float f2) -> Float(f1 +. f2)
-  | (Error, _) -> Error
-  | (_, Error) -> Error;;
+    match (n1, n2) with
+      (Int i1, Int i2) ->
+        (* Check for overflow of integer addition *)
+        if sign_int i1 = sign_int i2 && sign_int (i1 + i2) <> sign_int i1
+        then Float(float i1 +. float i2)
+        else Int(i1 + i2)
+    | (Int i1, Float f2) -> Float(float i1 +. f2)
+    | (Float f1, Int i2) -> Float(f1 +. float i2)
+    | (Float f1, Float f2) -> Float(f1 +. f2)
+    | (Error, _) -> Error
+    | (_, Error) -> Error;;
 val add_num : number -> number -> number = <fun>
 ```
 
@@ -329,20 +330,20 @@ type 'a btree = Empty | Node of 'a * 'a btree * 'a btree
 次は整列されたバイナリツリーをルックアップし挿入する操作を行う例である。
 ```ocaml
 # let rec member x btree =
-  match btree with
-    Empty -> false
-  | Node(y, left, right) ->
-    if x = y then true else
-    if x < y then member x left else member x right;;
+    match btree with
+      Empty -> false
+    | Node(y, left, right) ->
+      if x = y then true else
+      if x < y then member x left else member x right;;
 val member : 'a -> 'a btree -> bool = <fun>
 ```
 ```ocaml
 # let rec insert x btree =
-  match btree with
-    Empty -> Node(x, Empty, Empty)
-  | Node(y, left, right) ->
-    if x <= y then Node(y, insert x left, right)
-      else Node(y, left, insert x right);;
+    match btree with
+      Empty -> Node(x, Empty, Empty)
+    | Node(y, left, right) ->
+      if x <= y then Node(y, insert x left, right)
+        else Node(y, left, insert x right);;
 val insert : 'a -> 'a btree -> 'a btree = <fun>
 ```
 
