@@ -197,6 +197,7 @@ val map : ('a -> 'b) -> 'a list -> 'b list = <fun>
 ユーザー定義データ構造にはレコードと変数？がある。
 どちらも `type` をつかって定義できる。
 
+以下は分数を型で定義した例である。
 ```ocaml
 # type ratio = {num: int; denom: int};;
 type ratio = { num : int; denom : int; }
@@ -211,3 +212,137 @@ val add_ratio : ratio -> ratio -> ratio = <fun>
 # add_ratio {num=1; denom=3} {num=2; denom=5};;
 - : ratio = {num = 11; denom = 15}
 ```
+
+レコードのフィールドにはパターンマッチでアクセスできる。
+```ocaml
+# let integer_part r =
+  match r with
+    {num=num; denom=denom} -> num / denom;;
+val integer_part : ratio -> int = <fun>
+```
+
+パターンマッチに1ケースしかない場合であれば、
+引数 `r` をレコードのパターンで直接展開しても安全である。
+```ocaml
+# let integer_part {num=num; denom=denom} = num / denom;;
+val integer_part : ratio -> int = <fun>
+```
+
+不要なフィールドは省略することもできる。
+```ocaml
+# let get_denom {denom=denom} = denom;;
+val get_denom : ratio -> int = <fun>
+```
+
+オプションで、フィールドが欠落していることをフィールドのリストの末尾をワイルドカード `_` で終えることで明示することができる。
+
+```ocaml
+# let get_num {num=num; _ } = num;;
+val get_num : ratio -> int = <fun>
+```
+
+レコードを生成する際に次のようにフィールドを略記することもできる。
+```ocaml
+# let ratio num denom = {num; denom};;
+val ratio : int -> int -> ratio = <fun>
+```
+
+レコードのいくつかのフィールドを同時に更新することもできる。
+```ocaml
+# let integer_product integer ratio = { ratio with num = integer * ratio.num };;
+val integer_product : int -> ratio -> ratio = <fun>
+```
+このようなファンクショナルな更新記法を用いると、`with` より右手の更新されるフィールド以外は左手のレコードからコピーされる。
+
+variant型の宣言はそのvariant型で値が取り得る全ての型を列挙する。
+それぞれのケースは名前によって区別され、コンストラクタと呼ばれ、
+variant型の値の生成とパターンマッチによる検査を提供する。
+コンストラクタの名前は変数名と区別するために先頭大文字にされる。
+
+次の例は、整数と浮動小数点数をミックスしたvariant型である。
+```ocaml
+# type number = Int of int | Float of float | Error;;
+type number = Int of int | Float of float | Error
+```
+
+この宣言は`number` 型は整数か浮動小数点数、または不正な操作結果を意味する定数 `Error` を表現している。
+
+取り得る定数を示した列挙型は variant型の特別なケースである。
+```ocaml
+# type sign = Positive | Negative;;
+type sign = Positive | Negative
+```
+```ocaml
+# let sign_int n = if n >= 0 then Positive else Negative;;
+val sign_int : int -> sign = <fun>
+# sign_int 1;;
+- : sign = Positive
+# sign_int (-1);;
+- : sign = Negative
+```
+
+`number` 型に対する算術的な演算を定義するために、2つの数にパターンマッチを使うと次のようになる。
+```ocaml
+# let add_num n1 n2 =
+  match (n1, n2) with
+    (Int i1, Int i2) ->
+      (* Check for overflow of integer addition *)
+      if sign_int i1 = sign_int i2 && sign_int (i1 + i2) <> sign_int i1
+      then Float(float i1 +. float i2)
+      else Int(i1 + i2)
+  | (Int i1, Float f2) -> Float(float i1 +. f2)
+  | (Float f1, Int i2) -> Float(f1 +. float i2)
+  | (Float f1, Float f2) -> Float(f1 +. f2)
+  | (Error, _) -> Error
+  | (_, Error) -> Error;;
+val add_num : number -> number -> number = <fun>
+```
+
+他の variant型についての興味深い例は組み込みの型 `'a` の値か値が無いことを表す `'a option` 型である。
+```ocaml
+# type 'a option = Some of 'a | None;;
+type 'a option = Some of 'a | None
+```
+
+この型は一般的なシチュエーションで失敗する可能性のある関数を定義するときにとても役立つ。
+```ocaml
+# let safe_square_root x = if x > 0. then Some(sqrt x) else None;;
+val safe_square_root : float -> float option = <fun>
+```
+```ocaml
+# safe_square_root 2.;;
+- : float option = Some 1.41421356237309515
+# safe_square_root (-2.);;
+- : float option = None
+```
+
+最も一般的な variant 型の使い方は再帰的なデータ型の表現である。
+例えば、バイナリツリー型を考えてみる。
+```ocaml
+# type 'a btree = Empty | Node of 'a * 'a btree * 'a btree;;
+type 'a btree = Empty | Node of 'a * 'a btree * 'a btree
+```
+
+この定義は、任意の型 `'a` を持つバイナリツリーは空か、型 `'a` の１つの値と2つの型 `'a` の値を持つサブツリーをもつノードを持つと定義される。
+
+バイナリツリーの操作は再帰関数で表現される。
+次は整列されたバイナリツリーをルックアップし挿入する操作を行う例である。
+```ocaml
+# let rec member x btree =
+  match btree with
+    Empty -> false
+  | Node(y, left, right) ->
+    if x = y then true else
+    if x < y then member x left else member x right;;
+val member : 'a -> 'a btree -> bool = <fun>
+```
+```ocaml
+# let rec insert x btree =
+  match btree with
+    Empty -> Node(x, Empty, Empty)
+  | Node(y, left, right) ->
+    if x <= y then Node(y, insert x left, right)
+      else Node(y, left, insert x right);;
+val insert : 'a -> 'a btree -> 'a btree = <fun>
+```
+
