@@ -347,3 +347,122 @@ val member : 'a -> 'a btree -> bool = <fun>
 val insert : 'a -> 'a btree -> 'a btree = <fun>
 ```
 
+## 1.5 Imperative features
+
+ここまでの例は純粋なアプリカティブ・スタイルで書かれていたが、 OCaml は命令的な機能も備えている。それにはよくある `while` と `for` ループ、 配列のようなミュータブルなデータストラクチャも含まれている。配列は `[|` と `|]` の間に `;` で区切って要素を並べることで生成できる。もしくは、 `Array.make` で生成し、あとで、代入により値を埋めることができる。
+
+例えば、次のように２つのベクターの和を求めることができる。
+```ocaml
+# let add_vect v1 v2 =
+  let len = min (Array.length v1) (Array.length v2) in
+  let res = Array.make len 0.0 in
+  for i = 0 to len - 1 do
+    res.(i) <- v1.(i) +. v2.(i)
+  done;
+  res;;
+val add_vect : float array -> float array -> float array = <fun>
+```
+```ocaml
+# add_vect [|1.;0.3;1.5; 4.|] [|0.5; 3.5; 3.|]
+  ;;
+- : float array = [|1.5; 3.8; 4.5|]
+
+レコードのフィールドは、 レコード型を定義する際に `mutable` で宣言されていれば、代入によって変更することができる。
+```ocaml
+# type mutable_point = { mutable x: float; mutable y: float };;
+type mutable_point = { mutable x : float; mutable y : float; }
+```
+```ocaml
+# let translate p dx dy =
+  p.x <- p.x +. dx; p.y <- p.y +. dy;;
+val translate : mutable_point -> float -> float -> unit = <fun>
+```
+```ocaml
+# let mypoint = { x = 0.0; y = 0.0 };;
+val mypoint : mutable_point = {x = 0.; y = 0.}
+
+# translate mypoint 1.0 2.0;;
+- : unit = ()
+
+# mypoint;;
+- : mutable_point = {x = 1.; y = 2.}
+```
+
+OCaml は変数の概念 (代入によって現在の値を変更する) がないが、標準ライブラリは `!` 演算子を使って参照先の現在の値を取得することができ、 `:=` で値を代入できるミュータブルな間接参照を提供する。
+
+```ocaml
+# let insertion_sort a =
+  for i = 1 to Array.length a - 1 do
+    let val_i = a.(i) in
+    let j = ref i in
+    while !j > 0 && val_i < a.(!j -1) do
+      a.(!j) <- a.(!j-1);
+      j := !j - 1
+    done;
+    a.(!j) <- val_i
+  done;;
+val insertion_sort : 'a array -> unit = <fun>
+```
+```ocaml
+# let a = [| 5; 3; 6; 2; 9; 1; 0 |];;
+val a : int array = [|5; 3; 6; 2; 9; 1; 0|]
+
+# insertion_sort a;;
+- : unit = ()
+# a;;
+- : int array = [|0; 1; 2; 3; 5; 6; 9|]
+```
+
+参照は２回の関数呼び出しの間で現在の状態を維持する関数を書くのに役立つ。
+次の例の疑似乱数のジェネレータは最後に返した値を参照で保持する。
+```ocaml
+# let current_rand = ref 0;;
+val current_rand : int ref = {contents = 0}
+
+# let random () =
+  current_rand := !current_rand * 25713 + 1345;
+  !current_rand;;
+val random : unit -> int = <fun>
+```
+```ocaml
+# random ();;
+- : int = 1345
+
+# !current_rand;;
+- : int = 1345
+```
+
+参照はミュータブルなフィールド1つだけをもつレコードとして実装されている。
+```ocaml
+# type 'a ref = { mutable contents: 'a };;
+type 'a ref = { mutable contents : 'a; }
+
+# let (!) r = r.contents;;
+val ( ! ) : 'a ref -> 'a = <fun>
+
+#  let (:=) r newval = r.contents <- newval;;
+val ( := ) : 'a ref -> 'a -> unit = <fun>
+```
+
+特別なケースで、ポリモーフィズムを維持したままデータ構造の中にポリモーフィックな関数を格納する必要があるとする。これをするには、ポリモーフィズムはグローバルな定義に対してのみ自動的に導入されるためユーザーによる型アノテーションが必要である。
+レコードのフィールドにポリモーフィック型を明示することができる。
+```ocaml
+# type idref = { mutable id: 'a. 'a -> 'a };;
+type idref = { mutable id : 'a. 'a -> 'a; }
+```
+```ocaml
+# let r = {id = fun x -> x };;
+val r : idref = {id = <fun>}
+
+# let g s = (s.id 1, s.id true);;
+val g : idref -> int * bool = <fun>
+
+# r.id <- (fun x -> print_string "called id\n"; x);;
+- : unit = ()
+
+# g r;;
+called id
+called id
+- : int * bool = (1, true)
+```
+
