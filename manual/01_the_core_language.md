@@ -466,3 +466,131 @@ called id
 - : int * bool = (1, true)
 ```
 
+## 1.6 Exceptions
+
+例外的な状態を知らせ、ハンドリングするために OCaml は例外を提供する。
+例外は `exception` を使って宣言し、 `raise` 演算子で投げる。
+
+例
+```ocaml
+# exception Empty_list;;
+exception Empty_list
+```
+```ocaml
+# let head l =
+    match l with
+      [] -> raise Empty_list
+    | hd :: tl -> hd;;
+val head : 'a list -> 'a = <fun>
+
+# head [1; 2];;
+- : int = 1
+
+# head [];;
+Exception: Empty_list.
+```
+
+例外は、標準ライブラリでも、正常に関数を完了することができないようなケースを知らせるのに使われている。例えば、与えられたキーに関連するデータをペアのリストの中から返す `List.assoc` 関数では、リストの中にキーが出てこなかった場合に `Not_found` 例外を投げる。
+```ocaml
+# List.assoc 1 [(0, "zero"); (1, "one")];;
+- : string = "one"
+
+# List.assoc 2 [(0, "zero"); (1, "one")];;
+Exception: Not_found.
+```
+
+例外は `try...with` を使って捕捉することができる。
+```ocaml
+# let name_of_binary_digit digit =
+  try
+    List.assoc digit [0, "zero"; 1, "one"]
+  with Not_found ->
+    "not a binary digit";;
+val name_of_binary_digit : int -> string = <fun>
+```
+```ocaml
+# name_of_binary_digit 0;;
+- : string = "zero"
+
+# name_of_binary_digit (-1);;
+- : string = "not a binary digit"
+```
+
+`with` の部分は `match` と同じシンタックスと動作で例外の値をパターンマッチングできる。なので、いくつかの例外を１つの `try...with` で捕捉することができる。
+
+```ocaml
+# let temporarily_set_reference ref newval funct =
+  let oldval = !ref in
+  try
+    ref := newval;
+    let res = funct () in
+    ref := oldval;
+    res
+  with x ->
+    ref := oldval;
+    raise x;;
+val temporarily_set_reference : 'a ref -> 'a -> (unit -> 'b) -> 'b = <fun>
+```
+
+## 1.7 Symbolic processing of expressions
+
+シンボリックプロセッシングのための典型的な OCaml の使用例を紹介する。
+次の variant 型は、これから行おうとしている操作の式を表現している。
+```ocaml
+# type expression =
+    Const of float
+  | Var of string
+  | Sum of expression * expression (* e1 + e2 *)
+  | Diff of expression * expression (* e1 - e2 *)
+  | Prod of expression * expression (* e1 * e2 *)
+  | Quot of expression * expression (* e1 / e2 *)
+  ;;
+type expression =
+    Const of float
+  | Var of string
+  | Sum of expression * expression
+  | Diff of expression * expression
+  | Prod of expression * expression
+  | Quot of expression * expression
+```
+はじめに、与えられた変数名と値のマップで式を評価する関数を定義する。
+
+```ocaml
+# exception Unbound_variable_of_string;;
+exception Unbound_variable_of_string
+
+# let rec eval env exp =
+  match exp with
+    Const c -> c
+  | Var v ->
+    (try List.assoc v env with Not_found -> raise (Unbound_variable v))
+  | Sum(f, g) -> eval env f +. eval env g
+  | Diff(f, g) -> eval env f -. eval env g
+  | Prod(f, g) -> eval env f *. eval env g
+  | Quot(f, g) -> eval env f /. eval env g;;
+val eval : (string * float) list -> expression -> float = <fun>
+```
+```ocaml
+# eval [("x", 1.0); ("y", 3.14)] (Prod(Sum(Var "x", Const 2.0), Var "y"));;
+- : float = 9.42
+```
+
+次は実際のシンボリックプロセッシングのために、変数 `dv` に関する式の微分を定義する。
+```ocaml
+let rec deriv exp dv =
+match exp with
+  Const c -> Const 0.0
+| Var v -> if v = dv then Const 1.0 else Const 0.0
+| Sum(f, g) -> Sum(deriv f dv, deriv g dv)
+| Diff(f, g) -> Diff(deriv f dv, deriv g dv)
+| Prod(f, g) -> Sum(Prod(f, deriv g dv), Prod(deriv f dv, g))
+| Quot(f, g) -> Quot(Diff(Prod(deriv f dv, g), Prod(f, deriv g dv)), Prod(g, g))
+;;
+```
+```ocaml
+# deriv (Quot(Const 1.0, Var "x")) "x";;
+- : expression =
+Quot (Diff (Prod (Const 0., Var "x"), Prod (Const 1., Const 1.)),
+ Prod (Var "x", Var "x"))
+```
+
