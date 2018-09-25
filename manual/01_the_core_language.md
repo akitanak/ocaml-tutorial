@@ -534,7 +534,7 @@ val temporarily_set_reference : 'a ref -> 'a -> (unit -> 'b) -> 'b = <fun>
 
 ## 1.7 Symbolic processing of expressions
 
-シンボリックプロセッシングのための典型的な OCaml の使用例を紹介する。
+シンボリックプロセッシング?のための典型的な OCaml の使用例を紹介する。
 次の variant 型は、これから行おうとしている操作の式を表現している。
 ```ocaml
 # type expression =
@@ -575,7 +575,7 @@ val eval : (string * float) list -> expression -> float = <fun>
 - : float = 9.42
 ```
 
-次は実際のシンボリックプロセッシングのために、変数 `dv` に関する式の微分を定義する。
+変数 `dv` に関する式の微分を定義する。
 ```ocaml
 let rec deriv exp dv =
 match exp with
