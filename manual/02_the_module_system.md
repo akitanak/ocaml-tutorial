@@ -123,6 +123,38 @@ module PrioQueueOpt :
 
 ## 2.2 Signatures
 
+シグネチャは構造体のインタフェースである。シグネチャは構造体のどのコンポーネントが外からアクセス可能か指定する。これを使ってローカル関数などのコンポーネントを隠蔽することができる。もしくは、コンポーネントに制限された型を付けて公開できる。
+
+次の例は、補助関数である `remove_top` をシグネチャに記述せず隠蔽している。
+```ocaml
+# module type PRIOQUEUE =
+  sig
+    type priority = int (* still concrete *)
+    type 'a queue       (* now abstract *)
+    val empty : 'a queue
+    val insert : 'a queue -> int -> 'a -> 'a queue
+    val extract : 'a queue -> int * 'a * 'a queue
+    exception Queue_is_empty
+  end;;
+module type PRIOQUEUE =
+  sig
+    type priority = int
+    type 'a queue
+    val empty : 'a queue
+    val insert : 'a queue -> int -> 'a -> 'a queue
+    val extract : 'a queue -> int * 'a * 'a queue
+    exception Queue_is_empty
+  end
+```
+```ocaml
+# module AbstractPrioQueue = (PrioQueue: PRIOQUEUE);;
+module AbstractPrioQueue : PRIOQUEUE
+
+# AbstractPrioQueue.remove_top;;
+Error: Unbound value AbstractPrioQueue.remove_top
+```
+
+
 ## 2.3 Functors
 
 ## 2.4 Functors and type abstraction
