@@ -152,11 +152,224 @@ module AbstractPrioQueue : PRIOQUEUE
 
 # AbstractPrioQueue.remove_top;;
 Error: Unbound value AbstractPrioQueue.remove_top
+
+# AbstractPrioQueue.insert AbstractPrioQueue.empty 1 "hello";;
+- : string AbstractPrioQueue.queue = <abstr>
 ```
 
+この制限は構造体の定義時にも指定できる。
+```ocaml
+module PrioQueue = (struct ... end : PRIOQUEUE)
+```
+```ocaml
+module PrioQueue : PRIOQUEUE = struct ... end;;
+```
+
+シグネチャも構造体と同様にコピーすることができる。
+```ocaml
+# module type PRIOQUEUE_WITH_OPT =
+  sig
+    include PRIOQUEUE
+    val extract_opt : 'a queue -> (int * 'a * 'a queue) option
+  end;;
+module type PRIOQUEUE_WITH_OPT =
+  sig
+    type priority = int
+    type 'a queue
+    val empty : 'a queue
+    val insert : 'a queue -> int -> 'a -> 'a queue
+    val extract : 'a queue -> int * 'a * 'a queue
+    exception Queue_is_empty
+    val extract_opt : 'a queue -> (int * 'a * 'a queue) option
+  end
+```
 
 ## 2.3 Functors
 
+ファンクタはモジュールからモジュールへの関数である。
+ファンクターをつかうことで、パラメータ化されたモジュールを作ることができ、特定の実装を得るためのパラメータとして他のモジュールを与えることができる。
+例えば、 set を sorted list として実装されている `Set` モジュールは、要素
+の型と比較関数である `compare` を提供するモジュールで動作するようにパラメータ化できる。
+
+```ocaml
+# type comparison = Less | Equal | Greater;;
+type comparison = Less | Equal | Greater
+
+# module type ORDERED_TYPE =
+  sig
+    type t
+    val compare: t -> t -> comparison
+  end;;
+module type ORDERED_TYPE = sig type t val compare : t -> t -> comparison end
+```
+```ocaml
+# module Set =
+functor (Elt: ORDERED_TYPE) ->
+  struct
+    type element = Elt.t
+    type set = element list
+    let empty = []
+    let rec add x s =
+      match s with
+        [] -> [x]
+      | hd :: tl ->
+        match Elt.compare x hd with
+          Equal -> s
+        | Less  -> x :: s
+        | Greater -> hd :: add x tl
+    let rec member x s =
+      match s with
+        [] -> false
+      | hd :: tl ->
+        match Elt.compare x hd with
+          Equal -> true
+        | Less  -> false
+        | Greater -> member x tl
+  end;;
+module Set :
+  functor (Elt : ORDERED_TYPE) ->
+    sig
+      type element = Elt.t
+      type set = element list
+      val empty : 'a list
+      val add : Elt.t -> Elt.t list -> Elt.t list
+      val member : Elt.t -> Elt.t list -> bool
+    end
+```
+
+ordered 型を実装した構造体に `Set` ファンクタを適用することによって、
+この型の set 演算をえることができる。
+
+```ocmal
+# module OrderedString =
+  struct
+    type t = string
+    let compare x y = if x = y then Equal else if x < y then Less else Greater
+  end;;
+module OrderedString :
+  sig type t = string val compare : 'a -> 'a -> comparison end
+```
+```
+# module StringSet = Set(OrderedString);;
+module StringSet :
+  sig
+    type element = OrderedString.t
+    type set = element list
+    val empty : 'a list
+    val add : OrderedString.t -> OrderedString.t list -> OrderedString.t list
+    val member : OrderedString.t -> OrderedString.t list -> bool
+  end
+
+# StringSet.member "bar" (StringSet.add "foo" StringSet.empty);;
+- : bool = false
+```
+
 ## 2.4 Functors and type abstraction
+
+`PrioQueue`の例のように、`set`型の実際の実装を隠すのは良いスタイルであり、構造体のユーザーはセットがリストであることに依存せずに済み、あとでより効率的なセットの実装に変更する際もユーザーのコードを壊さずに済む。
+適切なファンクタのシグネチャによって制限することによって実現できる。
+
+```ocaml
+# module type SETFUNCTOR =
+  functor (Elt: ORDERED_TYPE) ->
+    sig
+      type element = Elt.t
+      type set
+      val empty: set
+      val add: element -> set -> set
+      val member: element -> set -> bool
+    end;;
+module type SETFUNCTOR =
+  functor (Elt : ORDERED_TYPE) ->
+    sig
+      type element = Elt.t
+      type set
+      val empty : set
+      val add : element -> set -> set
+      val member : element -> set -> bool
+    end
+```
+```ocaml
+# module AbstractSet = (Set: SETFUNCTOR);;
+module AbstractSet : SETFUNCTOR
+
+# module AbstractStringSet = AbstractSet(OrderedString);;
+module AbstractStringSet :
+  sig
+    type element = OrderedString.t
+    type set = AbstractSet(OrderedString).set
+    val empty : set
+    val add : element -> set -> set
+    val member : element -> set -> bool
+  end
+
+# AbstractStringSet.add "gee" AbstractStringSet.empty;;
+- : AbstractStringSet.set = <abstr>
+```
+
+よりエレガントに上記の型制約を書こうとすると、ファンクタによって返された構造体のシグネチャに名前をつけ、そのシグネチャを制約に使用することができる。
+
+```ocaml
+# module type SET =
+  sig
+    type element
+    type set
+    val empty: set
+    val add: element -> set -> set
+    val member: element -> set -> bool
+  end;;
+module type SET =
+  sig
+    type element
+    type set
+    val empty : set
+    val add : element -> set -> set
+    val member : element -> set -> bool
+  end
+```
+```ocaml
+# module WrongSet = (Set: functor(Elt: ORDERED_TYPE) -> SET);;
+module WrongSet : functor (Elt : ORDERED_TYPE) -> SET
+
+# module WrongStringSet = WrongSet(OrderedString);;
+module WrongStringSet :
+  sig
+    type element = WrongSet(OrderedString).element
+    type set = WrongSet(OrderedString).set
+    val empty : set
+    val add : element -> set -> set
+    val member : element -> set -> bool
+  end
+
+# WrongStringSet.add "gee" WrongStringSet.empty;;
+Error: This expression has type string but an expression was expected of type
+         WrongStringSet.element = WrongSet(OrderedString).element
+```
+
+`SET` は `element` の型を抽象的に指定しており、そのためファンクタの結果による `element` と引数の `t` が忘れられることが問題である。その結果、 `WrongStringSet.element` は `string` と方が異なり、 `WrongStringSet` の演算は `string` に適用することができない。
+`element` の型がシグネチャ `SET` の中で `Elt.t` として宣言されていることが大切であり、 上の例では `Elt` が存在しない状態で定義されており `Elt.t` として宣言することができない。
+これを解決するために、OCaml は追加の型同一性をシグネチャにエンリッチするための `with　type`  を提供している。
+
+```ocaml
+# module AbstractSet2 =
+  (Set: functor(Elt: ORDERED_TYPE) -> (SET with type element = Elt.t));;
+module AbstractSet2 :
+  functor (Elt : ORDERED_TYPE) ->
+    sig
+      type element = Elt.t
+      type set
+      val empty : set
+      val add : element -> set -> set
+      val member : element -> set -> bool
+    end
+```
+
+この簡単な構造体のケースのように別のシンタックスがファンクタを定義しその結果を制限するために提供されている。
+```ocaml
+module AbstractSet2(Elt: ORDERED_TYPE): (SET with type element = Elt.t) =
+  struct ... end;;
+```
+
+
 
 ## 2.5 Modules and separate compilation
