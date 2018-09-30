@@ -364,12 +364,77 @@ module AbstractSet2 :
     end
 ```
 
-この簡単な構造体のケースのように別のシンタックスがファンクタを定義しその結果を制限するために提供されている。
+この簡単な構造体のケースのようにファンクタを定義しその結果を制限するために別のシンタックスが提供されている。
 ```ocaml
 module AbstractSet2(Elt: ORDERED_TYPE): (SET with type element = Elt.t) =
   struct ... end;;
 ```
 
+ファンクタの結果に対して型コンポーネントを抽象化することは、高度な型安全性を提供する強力なテクニックである。
+
+たとえば、一般的な `OrderedString` と異なる実装を持つ文字列の順序付けを考える。
+次の例では、文字列の大文字小文字を区別せずに比較する文字列を定義する。
+```ocaml
+# module NoCaseString =
+  struct
+    type t = string
+    let compare s1 s2 =
+      OrderedString.compare (String.lowercase_ascii s1) (String.lowercase_ascii s2)
+  end;;
+module NoCaseString :
+  sig type t = string val compare : string -> string -> comparison end
+```
+```ocaml
+# module NoCaseStringSet = AbstractSet(NoCaseString);;
+module NoCaseStringSet :
+  sig
+    type element = NoCaseString.t
+    type set = AbstractSet(NoCaseString).set
+    val empty : set
+    val add : element -> set -> set
+    val member : element -> set -> bool
+  end
+```
+```ocaml
+# NoCaseStringSet.add "FOO" AbstractStringSet.empty;;
+Error: This expression has type
+         AbstractStringSet.set = AbstractSet(OrderedString).set
+       but an expression was expected of type
+         NoCaseStringSet.set = AbstractSet(NoCaseString).set
+```
+
+AbstractStringSet.set　と NoCaseStringSet.set は互換性がなく、これら２つの型の値は一致しない。たとえ、どちらのセット型も同じ型の要素を含んでいても、それらは異なる Orderingの型でビルドされており、異なる不変条件は操作によって維持されなければならない。
+ `AbstractStringSet` の操作を `NoCaseStringSet.set` の値に適用することは誤った結果を返すことになるか、`NoCaseStringSet` の不変条件を破ったリストを作ることになる。
 
 
 ## 2.5 Modules and separate compilation
+
+これまでの全てのモジュールの例は、REPL上における例であったが、モジュールは大きくて、まとめてコンパイルするようなプログラムに有効である。ソースをコンパイル単位にいくつかのファイルに分割し、個別にコンパイルすることで変更後の再コンパイルを必要最低限にできる。
+
+OCaml ではコンパイル単位は構造体とシグネチャの当別なケースであり、ユニット間の関係はモジュールシステムの観点から容易に説明できる。
+コンパイルユニットAは2つのファイルから構成される。
+- 実装ファイル `A.ml` は一連の定義を含み、 `struct...end` を構成することに似ている。
+- インタフェースファイル `A.mli` は一連の仕様を含み、 `sig...end` を構成することに似ている。
+
+次のような定義がトップレベルで入力された場合と同様に、これらの２つのファイルはともに `A` と名付けられた構造を定義する。
+```ocaml
+module A: sig (* contents of file A.mli *) end
+  = struct (* contents of file A.ml *) end;;
+```
+
+コンパイルユニットを定義するファイルは `ocamlc -c` コマンドを使うことで、個別にコンパイルできる。(`-c` オプションはコンパイルのみ行い、リンクは行わない意味である。)
+これによって、インタフェースファイル(*.cmi)とオブジェクトコードファイル(*.cmo)が生成される。全てのユニットがコンパイルされた時、それらの .cmoファイルは `ocamlc` コマンドをを使うことで、一緒にリンクされる。
+
+例えば、次のコマンドは２つのコンパイルユニット `Aux` と `Main` から構成されるプログラムをコンパイル & リンクする。
+```shell
+$ ocamlc -c Aux.mli
+$ ocamlc -c Aux.ml
+$ ocamlc -c Main.mli
+$ ocamlc -c Main.ml
+$ ocamlc -o theprogram Aux.cmo Main.cmo
+```
+
+`Main` は `Aux` を参照することができ、 `Main.ml` と `Main.mli` に含まれる定義と宣言は、`Aux.ml` 内の定義を `Aux.ident` 記法を使うことで参照することができ、これらの定義は `Aux.mli` でエクスポートされる。
+
+トップレベルの構造体だけ個別にコンパイルされたファイルにマップでき、ファンクタもモジュールタイプもマップできないことに注意する。
+しかし、全てのモジュールクラスオブジェクトは構造体のコンポーネントとして現れることがあるので、そのためにファンクタまたはモジュールタイプを構造体の中に配置することでファイルにマップできる。
