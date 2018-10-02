@@ -217,3 +217,61 @@ val result : < max : int; min : int > = <obj>
 １つは即時オブジェクトの型は省略できないこと、もう一つは即時オブジェクトは継承できないことである。
 しかし、これら２つの弱点はいくつかのシチュエーションでは強みでもある。それについては、3.3と3.10で述べる。
 
+## 3.3 Reference to self
+
+メソッドまたはイニシャライザは自分のメソッドを実行することができる。
+そのため、自身は明示的に束縛されなければならない。次の例では `s` を使っているが、識別子は何でもよく、 `self` がよく使われる。
+```ocaml
+# class printable_point x_init =
+  object(s)
+    val mutable x = x_init
+    method get_x = x
+    method move d = x <- x + d
+    method print = print_int s#get_x
+  end;;
+class printable_point :
+  int ->
+  object
+    val mutable x : int
+    method get_x : int
+    method move : int -> unit
+    method print : unit
+  end
+```
+```ocaml
+# let p = new printable_point 7;;
+val p : printable_point = <obj>
+
+# p#print;;
+7- : unit = ()
+```
+
+動的にメソッドの実行時に変数 `s` は束縛される。
+実際にクラス `printable_point` が継承された時、変数 `s` はサブクラスのオブジェクトに正しく束縛される。
+
+self の一般的な問題は、selfの型はサブクラスの中で拡張されるが、事前にそれを修正することはできない。
+簡単な例は次の通り。
+```ocaml
+# let ints = ref [];;
+val ints : '_weak1 list ref = {contents = []}
+```
+```ocaml
+# class my_int =
+  object (self)
+    method n = 1
+    method register = ints := self :: !ints
+  end;;
+Error: This expression has type < n : int; register : 'a; .. >
+       but an expression was expected of type 'weak1
+       Self type cannot escape its class
+```
+
+self を外部参照に入れることは、継承によって拡張することを不可能にする。この問題の回避方法は3.12でお目にかかれる。即時オブジェクトは拡張できないため、このような問題は起きない。
+```ocaml
+# let my_int =
+  object (self)
+    method n = 1
+    method register = ints := self :: !ints
+  end;;
+val my_int : < n : int; register : unit > = <obj>
+```
