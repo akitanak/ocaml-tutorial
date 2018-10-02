@@ -275,3 +275,35 @@ self を外部参照に入れることは、継承によって拡張すること
   end;;
 val my_int : < n : int; register : unit > = <obj>
 ```
+
+## 3.4 Initializers
+
+クラス定義の中の let 束縛はオブジェクトが生成される前に評価される。
+イニシャライザをつかうことで、オブジェクトが構築された直後に式を評価することもできる。イニシャライザは self とインスタンス変数にアクセスできる。
+
+```ocaml
+# class printable_point x_init =
+  let origin = (x_init / 10) * 10 in
+  object (self)
+    val mutable x = origin
+    method get_x = x
+    method move d = x <- x + d
+    method print = print_int self#get_x
+    initializer print_string "new point at "; self#print; print_newline ()
+  end;;
+class printable_point :
+  int ->
+  object
+    val mutable x : int
+    method get_x : int
+    method move : int -> unit
+    method print : unit
+  end
+```
+```ocaml
+# let p = new printable_point 17;;
+new point at 10
+val p : printable_point = <obj>
+```
+
+イニシャライザはオーバーライドできない。全てのイニシャライザが一つずつ順に評価される。イニシャライザは不変条件を強制するのに特に便利である。
