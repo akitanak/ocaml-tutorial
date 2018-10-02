@@ -170,4 +170,50 @@ val new_adjusted_point : int -> point = <fun>
 同じクラスのオブジェクトを生成するためにこの方法でいくつかのコンストラクタを定義することができるが、別の初期化パターンもある。代替手段はイニシャライザを使うことである。
 イニシャライザについては3.4章で触れる。
 
+## 3.2 Immediate objects
+
+クラスを介さずに、より直接的にオブジェクトを生成することもできる。
+
+シンタックスはクラスの式と全く同じであるが、結果はクラスではなく単一オブジェクトである。
+この章の残りで説明する全ての構造は即時オブジェクトにも適用される。
+
+```ocaml
+# let p =
+  object
+    val mutable x = 0
+    method get_x = x
+    method move d = x <- x + d
+  end;;
+val p : < get_x : int; move : int -> unit > = <obj>
+
+# p#get_x;;
+- : int = 0
+
+# p#move 3;;
+- : unit = ()
+
+# p#get_x;;
+- : int = 3
+```
+
+式の中に定義することはできないクラスとは違い、即時オブジェクトはどこにでも書けるし、その場にある変数も使える。
+
+```ocaml
+# let minmax x y =
+  if x < y then object method min = x method max = y end
+  else object method min = y method max = x end;;
+val minmax : 'a -> 'a -> < max : 'a; min : 'a > = <fun>
+```
+```ocaml
+# let result = minmax 3 9;;
+val result : < max : int; min : int > = <obj>
+# result#max;;
+- : int = 9
+# result#min;;
+- : int = 3
+```
+
+即時オブジェクトはクラスと比較して２つの弱点がある。
+１つは即時オブジェクトの型は省略できないこと、もう一つは即時オブジェクトは継承できないことである。
+しかし、これら２つの弱点はいくつかのシチュエーションでは強みでもある。それについては、3.3と3.10で述べる。
 
