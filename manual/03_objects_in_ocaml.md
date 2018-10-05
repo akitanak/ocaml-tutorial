@@ -307,3 +307,77 @@ val p : printable_point = <obj>
 ```
 
 イニシャライザはオーバーライドできない。全てのイニシャライザが一つずつ順に評価される。イニシャライザは不変条件を強制するのに特に便利である。
+
+## 3.5 Virtual methods
+
+`virtual` キーワードを使うことで、実定義をせずにメソッドを宣言することができる。
+このメソッドはサブクラスによって実装を与えられる。
+仮想メソッドを含むクラスは `virtual` フラグをつける必要があり、それはインスタンス化できない。
+
+```ocaml
+# class virtual abstract_point x_init =
+  object (self)
+    method virtual get_x : int
+    method get_offset = self#get_x - x_init
+    method virtual move : int -> unit
+  end;;
+class virtual abstract_point :
+  int ->
+  object
+    method get_offset : int
+    method virtual get_x : int
+    method virtual move : int -> unit
+  end
+```
+```ocaml
+# new abstract_point 1;;
+Error: Cannot instantiate the virtual class abstract_point
+```
+```ocaml
+# class point x_init =
+  object
+    inherit abstract_point x_init
+    val mutable x = x_init
+    method get_x = x
+    method move d = x <- x + d
+  end;;
+class point :
+  int ->
+  object
+    val mutable x : int
+    method get_offset : int
+    method get_x : int
+    method move : int -> unit
+  end
+```
+```ocaml
+# new point 1;;
+- : point = <obj>
+```
+
+メソッドと同じようにインスタンス変数も `virtual` として宣言でき、
+
+```ocaml
+# class virtual abstract_point2 =
+  object
+    val mutable virtual x: int
+    method move d = x <- x + d
+  end;;
+class virtual abstract_point2 :
+  object val mutable virtual x : int method move : int -> unit end
+```
+```ocaml
+# class point2 x_init =
+  object
+    inherit abstract_point2
+    val mutable x = x_init
+    method get_oggset = x - x_init
+  end;;
+class point2 :
+  int ->
+  object
+    val mutable x : int
+    method get_oggset : int
+    method move : int -> unit
+  end
+```
