@@ -482,4 +482,57 @@ class point_again :
 
 もちろんプライベートメソッドも `virtual` にできる。そのとき、キーワードは `method private virtual` の順で記述する必要がある。
 
+## 3.7 Class interface
+
+クラスインタフェースはクラス定義から推論される。
+クラスインタフェースは直接定義され、クラスの型を限定するために使われる。
+クラス宣言のようにクラスインタフェースも新しい省略型を定義する。
+
+```ocaml
+# class type restricted_point_type =
+  object
+    method get_x: int
+    method bump : unit
+  end;;
+class type restricted_point_type =
+  object method bump : unit method get_x : int end
+```
+```ocaml
+# function (x: restricted_point_type) -> x;;
+- : restricted_point_type -> restricted_point_type = <fun>
+```
+
+クラスインタフェースを使ってはクラスの型を制約することができる。具象インスタンス変数と具象プライベートメソッドはクラス型制約によって隠すことができるが、パブリックメソッドや仮想メンバーはできない。
+```ocaml
+# class restricted_point' x = (restricted_point x: restricted_point_type);;
+class restricted_point' : int -> restricted_point_type
+```
+または、
+```ocaml
+# class restricted_point' = (restricted_point : int -> restricted_point_type);;
+class restricted_point' : int -> restricted_point_type
+```
+
+クラスのインタフェースはモジュールのシグネチャで指定することもでき、
+推論されるモジュールのシグネチャを制限するために使用できる。
+```ocaml
+# module type POINT = sig
+  class restricted_point' : int ->
+    object
+      method get_x : int
+      method bump : unit
+    end
+  end;;
+module type POINT =
+  sig
+    class restricted_point' :
+      int -> object method bump : unit method get_x : int end
+  end
+```
+```ocaml
+# module Point: POINT = struct
+    class restricted_point' = restricted_point
+  end;;
+module Point : POINT
+```
 
