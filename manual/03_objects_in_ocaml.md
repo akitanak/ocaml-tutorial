@@ -536,3 +536,50 @@ module type POINT =
 module Point : POINT
 ```
 
+## 3.8 Inheritance
+
+`point` を継承した `colored_point` を定義することで継承について示す。
+このクラスは `point` クラスの全てのインスタンス変数とメソッドを持っており、加えて新しいインスタンス変数 `c` と新しいメソッド `color` を持っている。
+```ocaml
+# class colored_point x (c:string) =
+  object
+    inherit point x
+    val c = c
+    method color = c
+  end;;
+class colored_point :
+  int ->
+  string ->
+  object
+    val c : string
+    val mutable x : int
+    method color : string
+    method get_offset : int
+    method get_x : int
+    method move : int -> unit
+  end
+```
+```ocaml
+# let p' = new colored_point 5 "red";;
+val p' : colored_point = <obj>
+
+# p'#get_x, p'#color;;
+- : int * string = (5, "red")
+```
+`point` は `color` メソッドを持っていないため、 `colored_point` とは互換性が無い。しかし、次に示す`get_succ_x` 関数は、`get_x` メソッドを持つ任意のオブジェクト `p` にメソッド `get_x` を適用するジェネリック関数である。従って、 `get_succ_x` は `point` と `colored_point` 両方に適用される。
+```ocaml
+# let get_succ_x p = p#get_x + 1;;
+val get_succ_x : < get_x : int; .. > -> int = <fun>
+
+# get_succ_x p + get_succ_x p';;
+- : int = 9
+```
+
+メソッドは事前に宣言される必要はない。次の例は未定義の関数 `set_x` を持つ任意のオブジェクトを引数としてとる。
+```ocaml
+# let set_x p = p#set_x;;
+val set_x : < set_x : 'a; .. > -> 'a = <fun>
+
+# let incr p = set_x p (get_succ_x p);;
+val incr : < get_x : int; set_x : int -> 'a; .. > -> 'a = <fun>
+```
