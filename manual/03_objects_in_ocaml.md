@@ -583,3 +583,72 @@ val set_x : < set_x : 'a; .. > -> 'a = <fun>
 # let incr p = set_x p (get_succ_x p);;
 val incr : < get_x : int; set_x : int -> 'a; .. > -> 'a = <fun>
 ```
+
+## 3.9 Multiple inheritance
+
+多重継承は許されている。最後に定義されたメソッドのみが維持される。
+親クラスで visible なメソッドのサブクラスにおける再定義は親クラスの定義をオーバーライドする。メソッドの以前の定義は関連する祖先としてバインドすることで再利用することができる。 以下では、`super` は祖先である `printable_point` にバインドされている。`super` という名前はスーパークラスのメソッドを呼ぶためのみに使われる疑似値識別子である。
+```ocaml
+# class printable_colored_point y c =
+  object (self)
+    val c = c
+    method color = c
+    inherit printable_point y as super
+    method! print =
+      print_string "(";            ^R
+      print_string "(";
+      super#print;
+      print_string ",";
+      print_string (self#color);
+      print_string ")"
+  end;;
+class printable_colored_point :
+  int ->
+  string ->
+  object
+    val c : string
+    val mutable x : int
+    method color : string
+    method get_x : int
+    method print : unit
+  end
+```
+```ocaml
+# let p' = new printable_colored_point 17 "red";;
+new point at (10,red)
+val p' : printable_colored_point = <obj>
+
+# p'#print;;
+(10,red)- : unit = ()
+```
+
+親クラスの隠されたプライベートメソッドはもはや visible ではなくなり、オーバーライドされない。イニシャライザはプライベートメソッドとして扱われ、クラス階層に沿った全てのイニシャライザが継承順に評価される。
+
+わかりやすくするために、メソッド `print` は `method` キーワードに `!` を付けることで、別の定義を上書きすることを明示している。もし、メソッド `print` が `printable_point` の `print` メソッドをオーバーライドしていなかったら、コンパイラはエラーをあげる。
+```ocaml
+# object
+    method! m = ()
+  end;;
+Error: The method `m' has no previous definition
+```
+
+この明示的なオーバーライドアノテーションは `val` と `inherit` でも使える。
+```ocaml
+# class another_printable_colored_point y c c' =
+    object (self)
+    inherit printable_point y
+    inherit! printable_colored_point y c
+    val! c = c'
+  end;;
+class another_printable_colored_point :
+  int ->
+  string ->
+  string ->
+  object
+    val c : string
+    val mutable x : int
+    method color : string
+    method get_x : int
+    method print : unit
+  end
+```
