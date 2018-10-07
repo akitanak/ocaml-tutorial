@@ -381,3 +381,105 @@ class point2 :
     method move : int -> unit
   end
 ```
+
+## 3.6 Private methods
+
+プライベートメソッドはオブジェクトのインタフェースに現れないメソッドである。プライベートメソッドは同オブジェクトの他のメソッドからしか実行できない。
+
+```ocaml
+# class restricted_point x_init =
+  object (self)
+    val mutable x = x_init
+    method get_x = x
+    method private move d = x <- x + d
+    method bump = self#move 1
+  end;;
+class restricted_point :
+  int ->
+  object
+    val mutable x : int
+    method bump : unit
+    method get_x : int
+    method private move : int -> unit
+  end
+```
+```ocaml
+# let p = new restricted_point 0;;
+val p : restricted_point = <obj>
+
+# p#move 10;;
+Error: This expression has type restricted_point
+       It has no method move
+
+# p#bump;;
+- : unit = ()
+
+# p#get_x;;
+- : int = 1
+```
+
+同じクラスの他のオブジェクトから呼ぶことのできるJavaやC++のプライベートメソッドやプロテクテッドメソッドとは同じものではないことに注意する。
+
+これはOCamlが型とクラスを独立させていることの直接的な影響である。
+２つの無関係のクラスが同じ型のオブジェクトを生成するため、特定のクラスからオブジェクトが生成されることを型レベルで保証することはできない。
+
+プライベートメソッドはシグネチャのマッチングで隠蔽されていない限りは継承される。
+(デフォルトではサブクラスでは visible になる)
+
+プライベートメソッドはサブクラスでは公開することができる。
+```ocaml
+# class point_again x =
+    object (self)
+      inherit restricted_point x
+      method virtual move : _
+    end;;
+class point_again :
+  int ->
+  object
+    val mutable x : int
+    method bump : unit
+    method get_x : int
+    method move : int -> unit
+  end
+```
+
+`virtual` アノテーションは、その定義を提供せずメソッドに言及する場合にのみ使用される。`private` アノテーションを追加しなかったことで、もとの定義を維持したままメソッドはパブリックになった。
+他の表現は次のようになる。
+```ocaml
+# class point_again x =
+  object (self: < move : _; ..>)
+    inherit restricted_point x
+  end;;
+class point_again :
+  int ->
+  object
+    val mutable x : int
+    method bump : unit
+    method get_x : int
+    method move : int -> unit
+  end
+```
+selfの型の制約はパブリックな `move` メソッドを要求しており、 `private` をオーバーライドするならこれで十分である。
+
+サブクラスでもプライベートメソッドはプライベートのままであるべきと考えることもできるが、プライベートメソッドはサブクラスで visible であるため、そのメソッドを実行する同じ名前のメソッドを定義することができる。
+もう一つの重い解決方法は次のようになる。
+
+```ocaml
+# class point_again x =
+  object
+    inherit restricted_point x as super
+    method move = super#move
+  end;;
+class point_again :
+  int ->
+  object
+    val mutable x : int
+    method bump : unit
+    method get_x : int
+    method move : int -> unit
+  end
+```
+
+もちろんプライベートメソッドも `virtual` にできる。そのとき、キーワードは `method private virtual` の順で記述する必要がある。
+
+
